@@ -224,7 +224,7 @@ weather_df =
 ```{r}
 weather_nest_df=
 weather_df |>
-  nest(df =date:min)
+  nest(df = date:tmin)
 ```
 
 Can I regress `tmax` on `tmin` for each of these?
