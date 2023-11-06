@@ -475,6 +475,257 @@ for(i in 1:4){
 output_median=map(list_norm_samples,median)
 output_summary=map(list_norm_samples,summary)</code></pre>
 </div>
+<div id="create-a-df" class="section level3">
+<h3>create a df</h3>
+<pre class="r"><code>listcol_df = 
+  tibble(
+    name=c(&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;d&quot;),
+    samp = list_norm_samples
+  )</code></pre>
+<pre class="r"><code>listcol_df|&gt;pull(samp)</code></pre>
+<pre><code>## $a
+##  [1]  2.1196270 -4.7811167  3.1120926 -5.6237763  1.7054216 -1.6802400
+##  [7] -0.5580304  8.7805482 -1.2401665  2.6056177 -5.1508612 -5.6202935
+## [13]  7.3062114  7.5961586  0.5962312 -1.5254490  0.7392320  4.1443031
+## [19] 11.9000120  0.6549135
+## 
+## $b
+##  [1]  10.8140452   9.2501641   2.2550610  10.7166858  -2.9486779  -8.1117472
+##  [7] -12.9175780   8.1012770 -14.8648492  -8.3722206  11.4953439   6.1855838
+## [13]   3.6741312  -8.2926135  18.5905179  -7.3353960  -7.0778577   4.6824516
+## [19]   0.9042411  -2.9580381
+## 
+## $c
+##  [1] 18.85974 18.70628 19.40530 18.49919 20.01586 20.54017 18.45271 20.84965
+##  [9] 20.89601 20.13869 18.38067 20.54840 20.19528 19.19350 19.89138 19.74905
+## [17] 21.69935 19.65570 20.06777 19.34943
+## 
+## $d
+##  [1] -51.33930 -41.05903 -48.14566 -51.26254 -57.89344 -48.64844 -36.77077
+##  [8] -61.11764 -22.06392 -45.30784 -42.40103 -27.48649 -44.53104 -34.28045
+## [15] -67.13473 -38.74765 -12.71385 -39.78226 -42.20270 -68.60426</code></pre>
+<pre class="r"><code>mean_and_sd(listcol_df$samp[[1]])</code></pre>
+<pre><code>## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1  1.25  4.92</code></pre>
+<pre class="r"><code>mean_and_sd(listcol_df$samp[[2]])</code></pre>
+<pre><code>## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1 0.690  9.30</code></pre>
+<pre class="r"><code>mean_and_sd(listcol_df$samp[[3]])</code></pre>
+<pre><code>## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1  19.8 0.910</code></pre>
+<pre class="r"><code>map(listcol_df$samp,mean_and_sd)</code></pre>
+<pre><code>## $a
+## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1  1.25  4.92
+## 
+## $b
+## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1 0.690  9.30
+## 
+## $c
+## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1  19.8 0.910
+## 
+## $d
+## # A tibble: 1 × 2
+##    mean    sd
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1 -44.1  14.0</code></pre>
+<pre class="r"><code>listcol_df |&gt; 
+  mutate(mean_sd = map(samp,mean_and_sd),
+         median=map(samp,median))|&gt;
+  select(name,mean_sd)|&gt;
+  unnest(mean_sd)</code></pre>
+<pre><code>## # A tibble: 4 × 3
+##   name     mean     sd
+##   &lt;chr&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+## 1 a       1.25   4.92 
+## 2 b       0.690  9.30 
+## 3 c      19.8    0.910
+## 4 d     -44.1   14.0</code></pre>
+</div>
+<div id="nsduh" class="section level3">
+<h3>NSDUH</h3>
+<pre class="r"><code>nsduh_url = &quot;http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm&quot;
+
+nsduh_html = read_html(nsduh_url)
+nsduh_html = read_html(nsduh_url)
+
+nsduh_import = function(html, table_number,outcome_name){
+ html |&gt; 
+  html_table() |&gt; 
+  nth(table_number) |&gt;
+  slice(-1) |&gt; 
+  select(-contains(&quot;P Value&quot;)) |&gt;
+  pivot_longer(
+    -State,
+    names_to = &quot;age_year&quot;, 
+    values_to = &quot;percent&quot;) |&gt;
+  separate(age_year, into = c(&quot;age&quot;, &quot;year&quot;), sep = &quot;\\(&quot;) |&gt;
+  mutate(
+    year = str_replace(year, &quot;\\)&quot;, &quot;&quot;),
+    percent = str_replace(percent, &quot;[a-c]$&quot;, &quot;&quot;),
+    percent = as.numeric(percent),
+    outcome = outcome_name) |&gt;
+  filter(!(State %in% c(&quot;Total U.S.&quot;, &quot;Northeast&quot;, &quot;Midwest&quot;, &quot;South&quot;, &quot;West&quot;)))
+}
+nsduh_import(nsduh_html,1,&quot;marj&quot;)</code></pre>
+<pre><code>## # A tibble: 510 × 5
+##    State   age   year      percent outcome
+##    &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt;  
+##  1 Alabama 12+   2013-2014    9.98 marj   
+##  2 Alabama 12+   2014-2015    9.6  marj   
+##  3 Alabama 12-17 2013-2014    9.9  marj   
+##  4 Alabama 12-17 2014-2015    9.71 marj   
+##  5 Alabama 18-25 2013-2014   27.0  marj   
+##  6 Alabama 18-25 2014-2015   26.1  marj   
+##  7 Alabama 26+   2013-2014    7.1  marj   
+##  8 Alabama 26+   2014-2015    6.81 marj   
+##  9 Alabama 18+   2013-2014    9.99 marj   
+## 10 Alabama 18+   2014-2015    9.59 marj   
+## # ℹ 500 more rows</code></pre>
+<pre class="r"><code>nsduh_import(nsduh_html,4,&quot;cocaine&quot;)</code></pre>
+<pre><code>## # A tibble: 510 × 5
+##    State   age   year      percent outcome
+##    &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt;  
+##  1 Alabama 12+   2013-2014    1.23 cocaine
+##  2 Alabama 12+   2014-2015    1.22 cocaine
+##  3 Alabama 12-17 2013-2014    0.42 cocaine
+##  4 Alabama 12-17 2014-2015    0.41 cocaine
+##  5 Alabama 18-25 2013-2014    3.09 cocaine
+##  6 Alabama 18-25 2014-2015    3.2  cocaine
+##  7 Alabama 26+   2013-2014    1.01 cocaine
+##  8 Alabama 26+   2014-2015    0.99 cocaine
+##  9 Alabama 18+   2013-2014    1.31 cocaine
+## 10 Alabama 18+   2014-2015    1.31 cocaine
+## # ℹ 500 more rows</code></pre>
+<pre class="r"><code>nsduh_import(nsduh_html,5,&quot;heroine&quot;)</code></pre>
+<pre><code>## # A tibble: 510 × 5
+##    State   age   year      percent outcome
+##    &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt;  
+##  1 Alabama 12+   2013-2014    0.22 heroine
+##  2 Alabama 12+   2014-2015    0.27 heroine
+##  3 Alabama 12-17 2013-2014    0.1  heroine
+##  4 Alabama 12-17 2014-2015    0.08 heroine
+##  5 Alabama 18-25 2013-2014    0.45 heroine
+##  6 Alabama 18-25 2014-2015    0.64 heroine
+##  7 Alabama 26+   2013-2014    0.19 heroine
+##  8 Alabama 26+   2014-2015    0.23 heroine
+##  9 Alabama 18+   2013-2014    0.23 heroine
+## 10 Alabama 18+   2014-2015    0.29 heroine
+## # ℹ 500 more rows</code></pre>
+<p>import data using a for loop</p>
+<pre class="r"><code>table_input = list(1,4,5)
+name_input = list(&quot;marj&quot;,&quot;cocaine&quot;,&quot;heroine&quot;)
+
+output = vector(&quot;list&quot;,length=3)
+
+for(i in c(1:3)){
+  output[[i]]=nsduh_import(nsduh_html,table_input[[i]],name_input[[i]])
+}
+
+nsduh_df = bind_rows(output)</code></pre>
+<p>Try again using maps</p>
+<pre class="r"><code>nsduh_import = function(html, table_number){
+ html |&gt; 
+  html_table() |&gt; 
+  nth(table_number) |&gt;
+  slice(-1) |&gt; 
+  select(-contains(&quot;P Value&quot;)) |&gt;
+  pivot_longer(
+    -State,
+    names_to = &quot;age_year&quot;, 
+    values_to = &quot;percent&quot;) |&gt;
+  separate(age_year, into = c(&quot;age&quot;, &quot;year&quot;), sep = &quot;\\(&quot;) |&gt;
+  mutate(
+    year = str_replace(year, &quot;\\)&quot;, &quot;&quot;),
+    percent = str_replace(percent, &quot;[a-c]$&quot;, &quot;&quot;),
+    percent = as.numeric(percent))|&gt;
+  filter(!(State %in% c(&quot;Total U.S.&quot;, &quot;Northeast&quot;, &quot;Midwest&quot;, &quot;South&quot;, &quot;West&quot;)))
+}
+
+nsduh_df =
+  tibble(
+    name = c(&quot;marj&quot;,&quot;cocaine&quot;,&quot;heroine&quot;),
+    number = c(1,4,5)
+  )|&gt;
+  mutate(table=map(number,nsduh_import,html=nsduh_html))|&gt;
+  unnest(table)</code></pre>
+<pre class="r"><code>weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c(&quot;USW00094728&quot;, &quot;USW00022534&quot;, &quot;USS0023B17S&quot;),
+    var = c(&quot;PRCP&quot;, &quot;TMIN&quot;, &quot;TMAX&quot;), 
+    date_min = &quot;2021-01-01&quot;,
+    date_max = &quot;2022-12-31&quot;) |&gt;
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = &quot;CentralPark_NY&quot;, 
+      USW00022534 = &quot;Molokai_HI&quot;,
+      USS0023B17S = &quot;Waterhole_WA&quot;),
+    tmin = tmin / 10,
+    tmax = tmax / 10) |&gt;
+  select(name, id, everything())</code></pre>
+<pre><code>## Registered S3 method overwritten by &#39;hoardr&#39;:
+##   method           from
+##   print.cache_info httr</code></pre>
+<pre><code>## using cached file: C:\Users\Lenovo\AppData\Local/R/cache/R/rnoaa/noaa_ghcnd/USW00094728.dly</code></pre>
+<pre><code>## date created (size, mb): 2023-09-28 10:20:27.523071 (8.541)</code></pre>
+<pre><code>## file min/max dates: 1869-01-01 / 2023-09-30</code></pre>
+<pre><code>## using cached file: C:\Users\Lenovo\AppData\Local/R/cache/R/rnoaa/noaa_ghcnd/USW00022534.dly</code></pre>
+<pre><code>## date created (size, mb): 2023-09-28 10:21:05.222055 (3.838)</code></pre>
+<pre><code>## file min/max dates: 1949-10-01 / 2023-09-30</code></pre>
+<pre><code>## using cached file: C:\Users\Lenovo\AppData\Local/R/cache/R/rnoaa/noaa_ghcnd/USS0023B17S.dly</code></pre>
+<pre><code>## date created (size, mb): 2023-09-28 10:21:15.965282 (0.996)</code></pre>
+<pre><code>## file min/max dates: 1999-09-01 / 2023-09-30</code></pre>
+<pre class="r"><code>weather_nest_df=
+weather_df |&gt;
+  nest(df = date:tmin)</code></pre>
+<p>Can I regress <code>tmax</code> on <code>tmin</code> for each of
+these?</p>
+<pre class="r"><code>central_park_df = 
+  weather_nest_df|&gt;
+  pull(df)|&gt;
+  nth(1)</code></pre>
+<pre class="r"><code>weather_lm=function(df){
+  lm(tmax~tmin,data=df)
+}
+weather_lm(central_park_df)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = tmax ~ tmin, data = df)
+## 
+## Coefficients:
+## (Intercept)         tmin  
+##       7.514        1.034</code></pre>
+<p>let’s try for loop</p>
+<pre class="r"><code>input_list = weather_nest_df |&gt;pull(df)
+output = vector(&quot;list&quot;,length=3)
+
+for(i in 1:3){
+  output[[i]]=weather_lm(input_list[[i]])
+}</code></pre>
+<pre class="r"><code>weather_nest_df |&gt;
+  mutate(models = map(df,weather_lm))</code></pre>
+<pre><code>## # A tibble: 3 × 4
+##   name           id          df                 models
+##   &lt;chr&gt;          &lt;chr&gt;       &lt;list&gt;             &lt;list&gt;
+## 1 CentralPark_NY USW00094728 &lt;tibble [730 × 4]&gt; &lt;lm&gt;  
+## 2 Molokai_HI     USW00022534 &lt;tibble [730 × 4]&gt; &lt;lm&gt;  
+## 3 Waterhole_WA   USS0023B17S &lt;tibble [730 × 4]&gt; &lt;lm&gt;</code></pre>
+</div>
 
 
 
